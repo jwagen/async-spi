@@ -1,12 +1,12 @@
 module spi_slave(
-    input logic spi_clk,
-    output logic spi_miso,
-    input  logic spi_mosi,
+    input logic spi_clk,    // SPI clk pin
+    output logic spi_miso,  // SPI miso pin
+    input  logic spi_mosi,  // SPI mosi pin
 
-    input logic clk_sys,
+    input logic clk_sys,    // System clk
     input logic rst,
-    output logic [7:0] data_sync,
-    output logic data_ready_sync
+    output logic [7:0] data_sync,   // Synchronized data
+    output logic data_ready_sync    // Valid data in data_sync
 );
 
 logic [7:0] shift_reg;
@@ -40,12 +40,10 @@ always_ff @(posedge spi_clk) begin
             shift_done <= 0;
         end
         shift_done <= shift_done_dl1;
-
-
     end
 end
 
-// Synchronize data
+// Synchronize data with clk_sys domain
 always_ff @(posedge clk_sys) begin
     if (rst) begin
         data_sync <= 0;
@@ -54,9 +52,17 @@ always_ff @(posedge clk_sys) begin
         data_ready_sync <= 0;
     end
     else begin
-        data_pre_sync <= temp_reg;
-        data_sync <= temp_reg;
 
+        // Basic synchronizer on data
+        // Generally synchronizing multiple bits of a register requires a more complex synchronization
+        // mechanism. This is due to variability in the sampling time in the different registers due
+        // to clock skew.
+        // In this case it is ok because `temp_reg` is stable for at least an entire clk_sys
+        // cycle no matter the alignment of the clocks when data_ready_dl1 is set.
+        data_pre_sync <= temp_reg;
+        data_sync <= data_pre_sync;
+
+        // Synchronize data ready signal
         data_ready_pre <= shift_done_dl1;
         data_ready_sync <= data_ready_pre;
 
