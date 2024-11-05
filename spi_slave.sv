@@ -18,7 +18,6 @@ logic data_ready_pre;
 logic [2:0] bit_cnt;
 
 logic shift_done;
-logic shift_done_dl1;
 
 
 always_ff @(posedge spi_clk) begin
@@ -26,47 +25,39 @@ always_ff @(posedge spi_clk) begin
         shift_reg <= '0;
         bit_cnt <= '0;
         shift_done <= '0;
-        shift_done_dl1 <= '0;
+        temp_reg <= '0;
     end
     else begin
         shift_reg[7:1] <= shift_reg[6:0];
         shift_reg[0] <= spi_mosi;
         bit_cnt <= bit_cnt + 1;
-        if (bit_cnt == 7 ) begin
+        if (bit_cnt == 0 ) begin
             temp_reg <= shift_reg;
             shift_done <= 1;
         end
         else begin
             shift_done <= 0;
         end
-        shift_done <= shift_done_dl1;
     end
 end
 
 // Synchronize data with clk_sys domain
 always_ff @(posedge clk_sys) begin
     if (rst) begin
-        data_sync <= 0;
-        data_pre_sync <= 0;
         data_ready_pre <= 0;
         data_ready_sync <= 0;
     end
     else begin
 
-        // Basic synchronizer on data
-        // Generally synchronizing multiple bits of a register requires a more complex synchronization
-        // mechanism. This is due to variability in the sampling time in the different registers due
-        // to clock skew.
-        // In this case it is ok because `temp_reg` is stable for at least an entire clk_sys
-        // cycle no matter the alignment of the clocks when data_ready_dl1 is set.
-        data_pre_sync <= temp_reg;
-        data_sync <= data_pre_sync;
-
-        // Synchronize data ready signal
-        data_ready_pre <= shift_done_dl1;
+        // Synchronize data ready signal with two registers
+        data_ready_pre <= shift_done;
         data_ready_sync <= data_ready_pre;
 
     end
 end
+
+// Gate data_sync output. Only open gate when temp_reg is guarantied stable
+// Holds as long as spi_clk is at most approx 2x clk_sys
+assign data_sync = data_ready_sync ? temp_reg : 0;
 
 endmodule
